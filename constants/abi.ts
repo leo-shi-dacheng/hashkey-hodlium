@@ -14,6 +14,17 @@ export const HashKeyChainStakingABI = [
     outputs: [{ type: "uint256" }]
   },
   {
+    "inputs": [
+        { "internalType": "uint256", "name": "sharesAmount", "type": "uint256" },
+        { "internalType": "uint256", "name": "hskAmount", "type": "uint256" },
+        { "internalType": "uint256", "name": "lockEndTime", "type": "uint256" },
+        { "internalType": "uint256", "name": "lockDuration", "type": "uint256" },
+        { "internalType": "bool", "name": "withdrawn", "type": "bool" }
+    ],
+    "name": "LockedStake",
+    "type": "struct"
+  },
+  {
     name: "getUserLockedStakeCount",
     type: "function",
     stateMutability: "view",
