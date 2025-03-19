@@ -5,25 +5,30 @@ import MainLayout from '../main-layout';
 import { useAccount, useChainId, usePublicClient } from 'wagmi';
 import { LockedStakeInfo } from '@/types/contracts';
 import { formatBigInt } from '@/utils/format';
-import { useUnstakeLocked, useUserStakingInfo, batchGetStakingInfo, useAllStakingAPRs } from '@/hooks/useStakingContracts';
+import { 
+  useNewUserStakingInfo,
+  useNewUnstakeLocked, 
+  getBatchGetStakingInfo, 
+  useNewAllStakingAPRs,
+  useNewStakingInfo,
+  useNewLockedStakeInfo
+} from '@/hooks/useNewStakingContracts';
 import { getContractAddresses } from '@/config/contracts';
 import { toast } from 'react-toastify';
-import AddressBar from '../../components/AddressBar';
-// import StakingHistory from '@/components/StakingHistory';
 
 export default function PortfolioPage() {
   const { address, isConnected } = useAccount();
-  const { lockedStakeCount, activeLockedStakes, isLoading: loadingInfo } = useUserStakingInfo();
-  const { unstakeLocked, isPending: unstakePending, isConfirming: unstakeConfirming } = useUnstakeLocked();
+  const { lockedStakeCount, activeLockedStakes, stakesInfo, isLoading: loadingInfo } = useNewUserStakingInfo();
+  const { unstakeLocked, isPending: unstakePending, isConfirming: unstakeConfirming, error: unstakeError } = useNewUnstakeLocked();
   const [stakedPositions, setStakedPositions] = useState<Array<{ id: number, info: LockedStakeInfo }>>([]);
   const [isLoadingPositions, setIsLoadingPositions] = useState(false);
   const [processingStakeId, setProcessingStakeId] = useState<number | null>(null);
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
   const chainId = useChainId();
-  const contractAddress = getContractAddresses(chainId).stakingContract;
+  const contractAddress = getContractAddresses(chainId).stakingNewContract;
   const publicClient = usePublicClient();
   const [totalRewards, setTotalRewards] = useState<bigint>(BigInt(0));
-  const { estimatedAPRs, isLoading: aprsLoading } = useAllStakingAPRs();
+  const { stakingRates, currentAPR, isLoading: aprsLoading, error: aprsError } = useNewAllStakingAPRs();
   const [aprDataSource, setAprDataSource] = useState<'contract' | 'loading'>('loading');
   
   // 添加modal状态
@@ -32,12 +37,12 @@ export default function PortfolioPage() {
   
   // 处理APR数据 - 使用useEffect避免无限循环
   useEffect(() => {
-    if (!aprsLoading && estimatedAPRs) {
+    if (!aprsLoading && stakingRates) {
       setAprDataSource('contract');
     } else {
       setAprDataSource('loading');
     }
-  }, [aprsLoading, estimatedAPRs]);
+  }, [aprsLoading, stakingRates]);
   
   // 执行解除质押
   const executeUnstake = async (stakeId: number) => {
@@ -71,12 +76,13 @@ export default function PortfolioPage() {
     
     try {
       // 创建质押ID数组
-      const stakeIds = Array.from({ length: Number(lockedStakeCount) }, (_, i) => i);
+      // const stakeIds = Array.from({ length: Number(lockedStakeCount) }, (_, i) => i);
       
       // 批量获取所有质押信息
-      const stakesInfo = await batchGetStakingInfo(contractAddress, publicClient, stakeIds, address);
+      // const stakesInfo = await getBatchGetStakingInfo(contractAddress, publicClient, stakeIds, address);
       
-      // 计算总确认收益仅供参考
+      console.log('stakesInfo', stakesInfo);
+      // 计算总确认收益
       const confirmedTotalReward = stakesInfo
         .filter(info => !info.error && !info.isWithdrawn)
         .reduce((sum, info) => sum + (info.currentHskValue - info.hskAmount), BigInt(0));
@@ -172,20 +178,20 @@ export default function PortfolioPage() {
     }
   };
   
-  // 获取质押期APR值 - 使用useMemo避免重复计算
+  // 获取质押期APR值 - 使用useCallback避免重复计算
   const getAPRForStakePeriod = useCallback((lockEndTime: bigint) => {
-    if (!estimatedAPRs || aprsLoading) {
-      return 'Loading...';
+    if (aprsLoading || !stakingRates) {
+      return '加载中...';
     }
     
     const now = Math.floor(Date.now() / 1000);
     const remainingTime = Number(lockEndTime) - now;
     
     // 将合约返回的APR值除以100转换为百分比
-    const apr30 = Number(estimatedAPRs[0] || BigInt(0)) / 100;
-    const apr90 = Number(estimatedAPRs[1] || BigInt(0)) / 100;
-    const apr180 = Number(estimatedAPRs[2] || BigInt(0)) / 100;
-    const apr365 = Number(estimatedAPRs[3] || BigInt(0)) / 100;
+    const apr30 = Number(stakingRates.rate30Days) / 100;
+    const apr90 = Number(stakingRates.rate90Days) / 100;
+    const apr180 = Number(stakingRates.rate180Days) / 100;
+    const apr365 = Number(stakingRates.rate365Days) / 100;
     
     if (remainingTime <= 0) {
       return `${apr30.toFixed(2)}%`; // 已解锁的质押
@@ -198,9 +204,7 @@ export default function PortfolioPage() {
     } else {
       return `${apr365.toFixed(2)}%`; // 365天锁定
     }
-  }, [estimatedAPRs, aprsLoading]);
-  
-
+  }, [aprsLoading, stakingRates]);
 
   return (
     <MainLayout>
@@ -233,8 +237,8 @@ export default function PortfolioPage() {
               </button>
             </div>
             
-            {/* Add data source indicator */}
-            <div className="mb-4 text-sm">
+             {/* Add data source indicator */}
+             <div className="mb-4 text-sm">
               <span className="text-slate-400">
                 APR Data Source: {' '}
                 {aprDataSource === 'contract' ? (
@@ -377,7 +381,7 @@ export default function PortfolioPage() {
                         <p className="text-xl font-medium text-white">
                           {position.info.isLocked ? 
                             formatTimeRemaining(position.info.lockEndTime) : 
-                            new Date(Number(position.info.lockEndTime) * 1000).toLocaleDateString()
+                            new Date(Number(position.info.lockEndTime)/ 1000).toLocaleDateString()
                           }
                         </p>
                       </div>

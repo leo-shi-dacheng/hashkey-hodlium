@@ -13,6 +13,19 @@ export interface LockedStakeInfo {
     isWithdrawn: boolean;
     isLocked: boolean;
 }
+
+export interface NewLockedStakeInfo {
+    id: number | bigint;
+    sharesAmount: bigint;
+    hskAmount: bigint;
+    currentHskValue: bigint;
+    lockEndTime: bigint;
+    isWithdrawn: boolean;
+    isLocked: boolean;
+    reward: bigint;
+    isLoading: boolean;
+    error: Error | null;
+}
   
 export interface StakingStats {
     totalStakedAmount: bigint;

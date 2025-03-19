@@ -354,52 +354,174 @@ export function useLockedStakeInfo(stakeId: number | null) {
   return data;
 }
 
-// 根据 ABI 修改 batchGetStakingInfo 函数
-export async function batchGetStakingInfo(contractAddress: string, publicClient: any, stakeIds: number[], userAddress: string) {
-  const results = [];
-  
-  for (const id of stakeIds) {
+export function useBatchUnstakeLocked() {
+  const chainId = useChainId();
+  const publicClient = usePublicClient();
+  const { address } = useAccount();
+  const contractAddress = getContractAddresses(chainId).stakingContract;
+  const [isPending, setIsPending] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
+  const {lockedStakeCount, activeLockedStakes} = useUserStakingInfo();
+  // 添加进度追踪状态
+  const [progress, setProgress] = useState(0);
+  const [totalStakes, setTotalStakes] = useState(0);
+
+  const unstakeLocked = async (stakeId: number): Promise<boolean> => {
     try {
-      // 获取锁定质押信息，返回值格式：
-      // sharesAmount, hskAmount, currentHskValue, lockEndTime, isWithdrawn, isLocked
-      const stakeInfo = await publicClient.readContract({
+      setIsPending(true);
+      setError(null);
+      
+      // 发送交易
+      const tx = await writeContract(config, {
+        address: contractAddress,
+        abi: HashKeyChainStakingABI,
+        functionName: 'unstakeLocked',
+        args: [BigInt(stakeId)]
+      });
+      
+      console.log('Unstake transaction submitted:', tx);
+      
+      // 等待交易确认
+      setIsConfirming(true);
+      const receipt = await waitForTransactionReceipt(config, {
+        hash: tx,
+      });
+      
+      console.log('Unstake transaction confirmed:', receipt);
+      
+      // 返回交易状态
+      return receipt.status === 'success';
+    } catch (submitError) {
+      console.error('Unstaking failed:', submitError);
+      if (submitError instanceof Error) {
+        setError(submitError);
+      } else {
+        setError(new Error('Unstaking failed'));
+      }
+      throw submitError;
+    } finally {
+      setIsPending(false);
+      setIsConfirming(false);
+    }
+  };
+  
+  const fetchStakeInfo = async (stakeId: number) => {
+    try {
+      // 调用合约获取锁定质押信息
+      const stakeInfo = await publicClient!.readContract({
         address: contractAddress,
         abi: HashKeyChainStakingABI,
         functionName: 'getLockedStakeInfo',
-        args: [userAddress, BigInt(id)]
+        args: [address, BigInt(stakeId)]
       }) as [bigint, bigint, bigint, bigint, boolean, boolean];
       
-      // 收益 = 当前价值 - 初始质押金额
+      // 计算收益
       const reward = stakeInfo[2] - stakeInfo[1];
-      
-      results.push({
-        id,
-        sharesAmount: stakeInfo[0],    // 份额数量
-        hskAmount: stakeInfo[1],       // 初始质押的 HSK 金额
-        currentHskValue: stakeInfo[2],  // 当前价值（包含收益）
-        lockEndTime: stakeInfo[3],     // 锁定结束时间
-        isWithdrawn: stakeInfo[4],     // 是否已提取
-        isLocked: stakeInfo[5],        // 是否仍在锁定
-        reward: reward,                // 计算的收益
+      return {
+        sharesAmount: stakeInfo[0],
+        hskAmount: stakeInfo[1],
+        currentHskValue: stakeInfo[2],
+        lockEndTime: stakeInfo[3],
+        isWithdrawn: stakeInfo[4],
+        isLocked: stakeInfo[5],
+        reward: reward,
+        isLoading: false,
         error: null
-      });
+      };
     } catch (error) {
-      console.error(`获取质押 ${id} 失败:`, error);
-      results.push({
-        id,
-        sharesAmount: BigInt(0),
-        hskAmount: BigInt(0),
-        currentHskValue: BigInt(0),
-        lockEndTime: BigInt(0),
-        isWithdrawn: false,
-        isLocked: false,
-        reward: BigInt(0),
-        error: error
-      });
+      console.error('获取质押信息失败:', error);
     }
-  }
-  
-  return results;
+  };
+
+  const startbatchUnstake = async () => {
+    if (!activeLockedStakes) return false;
+    setIsPending(true);
+    // 重置进度追踪
+    setProgress(0);
+    setTotalStakes(0);
+    
+    try {
+      const stakeIds = [];
+      let totalStaked = 0n;
+      const stakeInfos: Record<number, any> = {};
+      
+      // 第一阶段：识别所有需要解除质押的位置
+      for (let stakeId = 0; stakeId < lockedStakeCount; stakeId++) {
+        const stakeInfo = await fetchStakeInfo(stakeId);
+        console.log(stakeId, stakeInfo, 'stakeInfo');
+        
+        if (stakeInfo && !stakeInfo.isWithdrawn) {
+          stakeIds.push(stakeId);
+          stakeInfos[stakeId] = stakeInfo;
+          totalStaked += stakeInfo.currentHskValue;
+        }
+      }
+      
+      // 设置总质押数量
+      setTotalStakes(stakeIds.length);
+      
+      // 创建进度更新队列
+      const progressUpdates = new Array(stakeIds.length).fill(false);
+      
+      // 并行执行所有unstakeLocked操作
+      const unstakePromises = stakeIds.map(async (stakeId, index) => {
+        try {
+          // const result = await unstakeLocked(stakeId);
+          const result = await randomResponse();
+          // 标记当前任务完成并更新进度
+          progressUpdates[index] = true;
+          setProgress(prev => prev + 1);
+          return result;
+        } catch (error) {
+          console.error(`Failed to unstake ID ${stakeId}:`, error);
+          // 即使失败也更新进度
+          progressUpdates[index] = false;
+          setProgress(prev => prev + 1);
+          return false;
+        }
+      });
+
+      // 启动进度监听器（防止状态更新延迟）
+      const progressInterval = setInterval(() => {
+        const currentProgress = progressUpdates.filter(Boolean).length;
+        setProgress(currentProgress);
+      }, 500);
+
+      // 等待所有操作完成
+      const results = await Promise.allSettled(unstakePromises);
+      clearInterval(progressInterval);
+
+      // 处理最终结果
+      const finalResults = results.map(result => 
+        result.status === 'fulfilled' ? result.value : false
+      );
+
+      console.log('All unstaking operations completed:', finalResults);
+
+      setIsPending(false);
+      return {
+        totalStaked,
+        isUnstakeFlags: finalResults,
+        completedCount: finalResults.filter(Boolean).length,
+        totalCount: stakeIds.length,
+        stakeInfos
+      };
+    } catch (error) {
+      console.error('Failed to batchUnstakeLocked:', error);
+      setIsPending(false);
+      throw error;
+    }
+  };
+
+  return { 
+    startbatchUnstake, 
+    isPending, 
+    isConfirming, 
+    error,
+    progress,
+    totalStakes
+  };
 }
 
 // 获取所有质押APR数据
@@ -467,3 +589,23 @@ export function useAllStakingAPRs(stakeAmount: string = '1000') {
   
   return data;
 }
+
+// 临时使用
+const randomResponse = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    // 实现思路分三步：
+    
+    // 1. 计算随机延迟（500-2000ms）
+    const min = 500;
+    const max = 20000;
+    const delay = Math.floor(Math.random() * (max - min + 1)) + min;
+    
+    // 2. 设置延迟定时器
+    setTimeout(() => {
+      resolve(true);
+      // // 3. 生成80%成功概率
+      // const success = Math.random() < 0.8;
+      // resolve(success);
+    }, delay);
+  });
+};

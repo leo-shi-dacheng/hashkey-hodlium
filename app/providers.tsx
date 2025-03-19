@@ -15,10 +15,10 @@ export const config = createConfig(getDefaultConfig({
   walletConnectProjectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID!,
   appName: "HashKey Staking",
   appDescription: "HashKey staking",
-  chains: [hashkey],
+  chains: [hashkeyTestnet],
   transports: {
-    [hashkey.id]: http(hashkey.rpcUrls.default.http[0]),
-    // [hashkeyTestnet.id]: http(hashkeyTestnet.rpcUrls.default.http[0])
+    // [hashkey.id]: http(hashkey.rpcUrls.default.http[0]),
+    [hashkeyTestnet.id]: http(hashkeyTestnet.rpcUrls.default.http[0])
   },
   ssr: true,
   syncConnectedChain: true,

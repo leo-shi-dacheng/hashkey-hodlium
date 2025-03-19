@@ -4,23 +4,20 @@ import React, { useState, useEffect } from 'react';
 import MainLayout from './main-layout';
 import { StakeType } from '@/types/contracts';
 import { formatBigInt } from '@/utils/format';
-import { useAccount } from 'wagmi';
 import Link from 'next/link';
-import { useStakingInfo, useAllStakingAPRs } from '@/hooks/useStakingContracts';
-import { useRouter } from 'next/navigation';
+import { useStakingInfo } from '@/hooks/useStakingContracts';
+import { useNewStakingInfo, useNewAllStakingAPRs } from '@/hooks/useNewStakingContracts';
 import axios from 'axios';
-import Image from 'next/image';
-import AddressBar from '@/components/AddressBar';
+import StartStake from '@/components/app/StartStake';
 
 export default function Home() {
   // 添加本地loading状态，初始为true
   const [initialLoading, setInitialLoading] = useState(true);
-  const [simulatedAmount, setSimulatedAmount] = useState('1000');
+  const [simulatedAmount] = useState('1000');
   const [debouncedAmount, setDebouncedAmount] = useState(simulatedAmount);
-  const { address: _address, isConnected } = useAccount();
-  const { totalStaked, stakingStats, exchangeRate, isLoading: apiLoading } = useStakingInfo(debouncedAmount);
-  const { estimatedAPRs, maxAPRs, isLoading: aprsLoading } = useAllStakingAPRs(debouncedAmount);
-  const router = useRouter();
+  const { totalStaked: oldTotalStaked, isLoading: apiLoading } = useStakingInfo(debouncedAmount);
+  const { totalStaked: newTotalStaked, exchangeRate, isLoading: newApiLoading } = useNewStakingInfo(debouncedAmount);
+  const { stakingRates, currentAPR, isLoading: aprsLoading } = useNewAllStakingAPRs(debouncedAmount);
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [serverTime, setServerTime] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -28,8 +25,10 @@ export default function Home() {
   const [isAppEnabled, setIsAppEnabled] = useState(false);
   const [aprDataSource, setAprDataSource] = useState<'contract' | 'loading'>('loading');
   
-  // 结合API加载状态和初始加载状态
-  const isLoadingCombined = initialLoading || apiLoading || aprsLoading;
+  // Calculate combined total staked
+  const combinedTotalStaked = (oldTotalStaked || BigInt(0)) + (newTotalStaked || BigInt(0));
+  // Update loading state to include both contracts
+  const isLoadingCombined = initialLoading || apiLoading || aprsLoading || newApiLoading;
   
   // Beijing launch time - March 3, 2025 20:00:00
   const launchTime = new Date('2025-03-01T20:00:00+08:00').getTime();
@@ -112,14 +111,14 @@ export default function Home() {
   
   // 当数据加载完成后，关闭初始加载状态
   useEffect(() => {
-    if (!apiLoading && totalStaked !== undefined) {
+    if (!apiLoading && oldTotalStaked !== undefined) {
       // 添加一个小延迟，确保UI平滑过渡
       const timer = setTimeout(() => {
         setInitialLoading(false);
       }, 100);
       return () => clearTimeout(timer);
     }
-  }, [apiLoading, totalStaked]);
+  }, [apiLoading, oldTotalStaked]);
   
   // Add debounce processing
   useEffect(() => {
@@ -132,17 +131,17 @@ export default function Home() {
   
   // Update APR data source when loading state changes
   useEffect(() => {
-    if (!aprsLoading && estimatedAPRs && maxAPRs) {
+    if (!aprsLoading && stakingRates && currentAPR) {
       setAprDataSource('contract');
     } else {
       setAprDataSource('loading');
     }
-  }, [aprsLoading, estimatedAPRs, maxAPRs]);
+  }, [aprsLoading, stakingRates, currentAPR]);
   
   // Extract APR and reward information from contract data
   const stakingOptions = React.useMemo(() => {
     // If data is still loading, return empty array
-    if (aprsLoading || !estimatedAPRs || !maxAPRs) {
+    if (aprsLoading || !stakingRates) {
       console.log('APR data is still loading');
       setAprDataSource('loading');
       return [];
@@ -150,28 +149,29 @@ export default function Home() {
     
     try {
       console.log('Contract APR data available:', {
-        estimatedAPRs: estimatedAPRs.map(apr => apr.toString()),
-        maxAPRs: maxAPRs.map(apr => apr.toString())
+        stakingRates: {
+          rate0Days: stakingRates.rate0Days.toString(),
+          rate30Days: stakingRates.rate30Days.toString(),
+          rate90Days: stakingRates.rate90Days.toString(),
+          rate180Days: stakingRates.rate180Days.toString(),
+          rate365Days: stakingRates.rate365Days.toString()
+        },
+        currentAPR: currentAPR?.toString() || '0'
       });
       
       setAprDataSource('contract');
       
-      // Calculate formatted APR values
-      const apr30 = Number(estimatedAPRs[0] || BigInt(0)) / 100;
-      const apr90 = Number(estimatedAPRs[1] || BigInt(0)) / 100;
-      const apr180 = Number(estimatedAPRs[2] || BigInt(0)) / 100;
-      const apr365 = Number(estimatedAPRs[3] || BigInt(0)) / 100;
-      
-      const maxApr30 = Number(maxAPRs[0] || BigInt(0)) / 100;
-      const maxApr90 = Number(maxAPRs[1] || BigInt(0)) / 100;
-      const maxApr180 = Number(maxAPRs[2] || BigInt(0)) / 100;
-      const maxApr365 = Number(maxAPRs[3] || BigInt(0)) / 100;
+      // Calculate formatted APR values - convert from basis points (1/100 of a percent)
+      const apr30 = Number(stakingRates.rate30Days) / 100;
+      const apr90 = Number(stakingRates.rate90Days) / 100;
+      const apr180 = Number(stakingRates.rate180Days) / 100;
+      const apr365 = Number(stakingRates.rate365Days) / 100;
       
       // 硬编码的bonus值，按照图片中显示的数值
       const bonus30 = 0.00;  // 30天锁定期：+0.00%
-      const bonus90 = 0.80;  // 90天锁定期：+0.80%
-      const bonus180 = 2.00; // 180天锁定期：+2.00%
-      const bonus365 = 4.00; // 365天锁定期：+4.00%
+      const bonus90 = 0.00;  // 90天锁定期：+0.00%
+      const bonus180 = 0.00; // 180天锁定期：+0.00%
+      const bonus365 = 0.00; // 365天锁定期：+0.00%
       
       console.log('Using hardcoded bonus values:', {
         '30 days': bonus30.toFixed(2) + '%',
@@ -181,22 +181,10 @@ export default function Home() {
       });
       
       console.log('Contract APR values (formatted):', {
-        '30 days': {
-          estimated: apr30.toFixed(2) + '%',
-          max: maxApr30.toFixed(2) + '%'
-        },
-        '90 days': {
-          estimated: apr90.toFixed(2) + '%',
-          max: maxApr90.toFixed(2) + '%'
-        },
-        '180 days': {
-          estimated: apr180.toFixed(2) + '%',
-          max: maxApr180.toFixed(2) + '%'
-        },
-        '365 days': {
-          estimated: apr365.toFixed(2) + '%',
-          max: maxApr365.toFixed(2) + '%'
-        }
+        '30 days': apr30.toFixed(2) + '%',
+        '90 days': apr90.toFixed(2) + '%',
+        '180 days': apr180.toFixed(2) + '%',
+        '365 days': apr365.toFixed(2) + '%'
       });
       
       // Extract data and calculate
@@ -207,7 +195,7 @@ export default function Home() {
           durationDisplay: '30 days',
           apr: apr30,
           bonus: bonus30,
-          maxApr: maxApr30,
+          maxApr: apr30 + bonus30,
           stakeType: StakeType.FIXED_30_DAYS
         },
         {
@@ -216,7 +204,7 @@ export default function Home() {
           durationDisplay: '90 days',
           apr: apr90,
           bonus: bonus90,
-          maxApr: maxApr90,
+          maxApr: apr90 + bonus90,
           stakeType: StakeType.FIXED_90_DAYS
         },
         {
@@ -225,7 +213,7 @@ export default function Home() {
           durationDisplay: '180 days',
           apr: apr180,
           bonus: bonus180,
-          maxApr: maxApr180,
+          maxApr: apr180 + bonus180,
           stakeType: StakeType.FIXED_180_DAYS
         },
         {
@@ -234,7 +222,7 @@ export default function Home() {
           durationDisplay: '365 days',
           apr: apr365,
           bonus: bonus365,
-          maxApr: maxApr365,
+          maxApr: apr365 + bonus365,
           stakeType: StakeType.FIXED_365_DAYS
         }
       ];
@@ -243,7 +231,7 @@ export default function Home() {
       setAprDataSource('loading');
       return []; // Return empty array on error
     }
-  }, [estimatedAPRs, maxAPRs, aprsLoading]);
+  }, [stakingRates, currentAPR, aprsLoading]);
   
   // 显示加载状态
   if (isLoading) {
@@ -331,17 +319,7 @@ export default function Home() {
             </p>
             
             {/* Call to action button */}
-            <div className="mt-10">
-              <Link 
-                href="/stake" 
-                className="inline-flex items-center px-8 py-4 rounded-xl bg-primary/80 text-white hover:bg-primary transition-colors text-lg font-medium shadow-lg hover:shadow-xl"
-              >
-                Start Staking
-                <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </Link>
-            </div>
+            <StartStake />
             
             {/* AddressBar component placed here */}
             {/* <div className="mt-10 flex justify-center">
@@ -353,7 +331,7 @@ export default function Home() {
           
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-            {/* Total Staked Card */}
+            {/* Total Staked Card - Updated to show combined total */}
             <div className="bg-slate-800/50 backdrop-blur-sm rounded-2xl p-8 border border-slate-700/50 transition-all hover:border-primary/30 hover:bg-slate-800/80">
               <div className="flex items-center gap-2 mb-4">
                 <svg className="w-6 h-6 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -368,7 +346,7 @@ export default function Home() {
               ) : (
                 <div className="flex items-baseline gap-2">
                   <span className="text-3xl font-light tracking-tight text-white">
-                    {typeof totalStaked === 'bigint' ? formatBigInt(totalStaked) : '0'}
+                    {formatBigInt(combinedTotalStaked)}
                   </span>
                   <span className="text-lg font-light text-slate-400">HSK</span>
                 </div>
@@ -381,7 +359,7 @@ export default function Home() {
                 <svg className="w-6 h-6 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 7h12M3 12h8m-8 5h16" />
                 </svg>
-                <h3 className="text-sm font-medium text-slate-300">Current Rate</h3>
+                <h3 className="text-sm font-medium text-slate-300">MAX APR</h3>
                 <div className="tooltip tooltip-right" data-tip="Rate increases as rewards accumulate">
                   <svg className="w-4 h-4 text-primary/40 hover:text-primary/60 transition-colors cursor-help" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -396,13 +374,15 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="flex items-baseline gap-2">
-                  <span className="text-3xl font-light tracking-tight text-white">1</span>
-                  <span className="text-lg font-light text-slate-400">stHSK</span>
-                  <span className="text-slate-500">=</span>
+                  <span className="text-3xl font-light tracking-tight text-white">
+                    12% APR
+                  </span>
+                  {/* <span className="text-lg font-light text-slate-400">stHSK</span> */}
+                  {/* <span className="text-slate-500">=</span>
                   <span className="text-3xl font-light tracking-tight text-white">
                     {typeof exchangeRate === 'bigint' ? formatBigInt(exchangeRate) : '1'}
                   </span>
-                  <span className="text-lg font-light text-slate-400">HSK</span>
+                  <span className="text-lg font-light text-slate-400">HSK</span> */}
                 </div>
               )}
             </div>
@@ -462,7 +442,7 @@ export default function Home() {
                   </div>
                   
                   <div className="flex justify-between items-center">
-                    <span className="text-slate-400">Max APR</span>
+                    <span className="text-slate-400">APR</span>
                     <span className="text-white font-medium">{option.maxApr.toFixed(2)}%</span>
                   </div>
                 </div>

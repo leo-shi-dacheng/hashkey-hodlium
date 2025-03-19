@@ -159,7 +159,6 @@ export function useContractEvents(
             ]);
             if (stakeLogsResult.length) {
               console.log(stakeLogsResult, 'stakeLogsResult')
-              debugger
             }
 
             // Process stake events
