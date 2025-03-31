@@ -17,8 +17,8 @@ export const config = createConfig(getDefaultConfig({
   appDescription: "HashKey staking",
   chains: [hashkey],
   transports: {
-    [hashkey.id]: http(hashkey.rpcUrls.default.http[0]),
-    // [hashkeyTestnet.id]: http(hashkeyTestnet.rpcUrls.default.http[0])
+    // [hashkey.id]: http(hashkey.rpcUrls.default.http[0]),
+    [hashkeyTestnet.id]: http(hashkeyTestnet.rpcUrls.default.http[0])
   },
   ssr: true,
   syncConnectedChain: true,
