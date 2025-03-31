@@ -1,0 +1,11 @@
+name: Check Reward Pool
+on:
+  schedule:
+    - cron: '*/5 * * * *' # 每 5 分钟运行一次
+jobs:
+  check-reward:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Vercel API
+        run: |
+          curl -X POST "https://hashkey-hodlium-ten.vercel.app/api/check-reward"
