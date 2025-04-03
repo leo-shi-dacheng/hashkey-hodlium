@@ -23,7 +23,7 @@ export default function StartStake() {
         );
     }
 
-    const formatValue = (amount) => {
+    const formatValue = (amount: bigint) => {
         const formatted = formatEther(amount);
         const numericValue = Number(formatted);
         if (numericValue >= 1) {

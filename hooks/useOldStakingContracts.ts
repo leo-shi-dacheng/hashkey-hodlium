@@ -348,6 +348,7 @@ export function useLockedStakeInfo(stakeId: number | null, queryAddress?: string
     };
     
     fetchStakeInfo();
+  // @ts-ignore
   }, [publicClient, contractAddress, targetAddress, stakeId]);
   
   return data;

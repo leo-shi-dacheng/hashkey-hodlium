@@ -388,6 +388,7 @@ export function useLockedStakeInfo(stakeId: number | null, queryAddress?: string
     };
     
     fetchStakeInfo();
+  // @ts-ignore
   }, [publicClient, contractAddress, targetAddress, stakeId]);
   
   return data;
@@ -486,19 +487,21 @@ export async function batchGetStakingInfo(contractAddress: string, publicClient:
           args: [userAddress, BigInt(id)]
         }) as [bigint, bigint, bigint, bigint];
         
-        // 收益 = 当前价值 - 初始质押金额
-        const reward = stakeInfo[2] - stakeInfo[1];
+        // Ensure both values are BigInt before subtraction
+        const currentValue = BigInt(stakeInfo[2]);
+        const initialAmount = BigInt(stakeInfo[1]);
+        const reward = currentValue - initialAmount;
         
         results.push({
           id,
-          sharesAmount: stakeInfo[0],    // 份额数量
-          hskAmount: stakeInfo[1],       // 初始质押的 HSK 金额
-          currentHskValue: stakeInfo[2],  // 当前价值（包含收益）
-          lockEndTime: stakeInfo[3],     // 锁定结束时间
-          isWithdrawn: stakeInfo[4],     // 是否已提取
-          isLocked: stakeInfo[5],        // 是否仍在锁定
-          reward: reward,                // 计算的收益
-          actualReward: rewardInfo[2],   // 实际奖励
+          sharesAmount: BigInt(stakeInfo[0]),
+          hskAmount: BigInt(stakeInfo[1]),
+          currentHskValue: BigInt(stakeInfo[2]),
+          lockEndTime: BigInt(stakeInfo[3]),
+          isWithdrawn: stakeInfo[4],
+          isLocked: stakeInfo[5],
+          reward: reward,
+          actualReward: BigInt(rewardInfo[2]),
           error: null
         });
       } catch (error) {

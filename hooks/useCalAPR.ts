@@ -185,7 +185,7 @@ export function useRewardsInfo() {
           address: contractAddress,
           abi: HashKeyChainStakingABI,
           functionName: 'getRewardStatus',
-        });
+        }) as [bigint, bigint, bigint, bigint, bigint];
         console.log('rewardData 1111111:', rewardData);
         const totalPooled = rewardData[0] as bigint;
         const totalShares = rewardData[1] as bigint;

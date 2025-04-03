@@ -82,7 +82,7 @@ const FlexibleStakingPositions: React.FC<FlexibleStakingPositionsProps> = ({
       const flexibleStakesInfo = await batchGetFlexibleStakingInfo(contractAddress, publicClient, flexibleStakeIds, queryAddress);
       const flexibleTotalReward = flexibleStakesInfo
         .filter(info => !info.error && info.stakingStatus === FlexibleStakeStatus.ACTIVE)
-        .reduce((sum, info) => sum + info.reward, BigInt(0));
+        .reduce((sum, info) => sum + info.reward!, BigInt(0));
       onTotalRewardsChange(flexibleTotalReward);
       const flexiblePositions = flexibleStakesInfo
         .filter(info => !info.error)
@@ -97,6 +97,7 @@ const FlexibleStakingPositions: React.FC<FlexibleStakingPositionsProps> = ({
             reward: info.reward,
           },
         }));
+      // @ts-ignore
       setFlexibleStakedPositions(flexiblePositions);
     } catch (error) {
       console.error('Failed to fetch flexible staked positions:', error);

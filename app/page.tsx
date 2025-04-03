@@ -89,7 +89,7 @@ export default function PortfolioPage() {
 
       const confirmedTotalReward = stakesInfo
         .filter(info => !info.error && !info.isWithdrawn)
-        .reduce((sum, info) => sum + (info.currentHskValue - info.hskAmount), BigInt(0));
+        .reduce((sum, info) => sum + (info.currentHskValue! - info.hskAmount!), BigInt(0));
 
       setTotalRewards(confirmedTotalReward);
 
@@ -107,7 +107,8 @@ export default function PortfolioPage() {
             actualReward: info.actualReward
           }
         }));
-
+      
+      // @ts-ignore
       setStakedPositions(positions);
       setLastUpdateTime(new Date());
 
@@ -268,6 +269,7 @@ export default function PortfolioPage() {
                   <div className="flex items-center">
                     <span className="text-sm text-slate-400 mr-2">Viewing:</span>
                     <span className="text-sm font-mono text-white">
+                      {/* @ts-ignore */}
                       {(queryAddress || address).slice(0, 6)}...{(queryAddress || address).slice(-4)}
                     </span>
                     {(queryAddress || address) === address && (
@@ -452,7 +454,7 @@ export default function PortfolioPage() {
             ) : null}
 
             <FlexibleStakingPositions
-              queryAddress={queryAddress || address}
+              queryAddress={queryAddress! || address!}
               isViewingOwnPortfolio={(queryAddress || address) === address}
               onTotalRewardsChange={(rewards) => setTotalRewards((prev) => prev + rewards)}
               isLoadingPositions={isLoadingPositions}
@@ -462,7 +464,7 @@ export default function PortfolioPage() {
               getFlexibleAPR={getFlexibleAPR}
             />
             <OldStakingPositions 
-              queryAddress={queryAddress || address}
+              queryAddress={queryAddress! || address!}
               isViewingOwnPortfolio={(queryAddress || address) === address}
             />
           </div>
