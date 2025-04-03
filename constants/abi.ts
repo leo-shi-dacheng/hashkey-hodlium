@@ -173,6 +173,31 @@ export const HashKeyChainStakingABI = [
     "inputs": [
       {
         "indexed": false,
+        "internalType": "enum HashKeyChainStakingStorage.StakeType",
+        "name": "stakeType",
+        "type": "uint8"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "oldValue",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "newValue",
+        "type": "uint256"
+      }
+    ],
+    "name": "MaxAPRsUpdated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
         "internalType": "uint256",
         "name": "oldValue",
         "type": "uint256"
@@ -517,6 +542,25 @@ export const HashKeyChainStakingABI = [
   {
     "inputs": [
       {
+        "internalType": "enum HashKeyChainStakingStorage.StakeType",
+        "name": "stakeType",
+        "type": "uint8"
+      }
+    ],
+    "name": "calculateCorrectionFactor",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "_withdrawalId",
         "type": "uint256"
@@ -811,25 +855,44 @@ export const HashKeyChainStakingABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_stakeAmount",
+        "name": "_sharesAmount",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_lockDuration",
         "type": "uint256"
       }
     ],
-    "name": "getHSKStakingAPR",
+    "name": "getHSKForSharesByDuration",
     "outputs": [
       {
         "internalType": "uint256",
-        "name": "baseApr",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_sharesAmount",
         "type": "uint256"
       },
       {
-        "internalType": "uint256",
-        "name": "minApr",
-        "type": "uint256"
-      },
+        "internalType": "enum HashKeyChainStakingStorage.StakeType",
+        "name": "stakeType",
+        "type": "uint8"
+      }
+    ],
+    "name": "getHSKForSharesByType",
+    "outputs": [
       {
         "internalType": "uint256",
-        "name": "maxApr",
+        "name": "",
         "type": "uint256"
       }
     ],
@@ -1187,6 +1250,25 @@ export const HashKeyChainStakingABI = [
     "type": "function"
   },
   {
+    "inputs": [
+      {
+        "internalType": "enum HashKeyChainStakingStorage.StakeType",
+        "name": "",
+        "type": "uint8"
+      }
+    ],
+    "name": "maxAPRs",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
     "inputs": [],
     "name": "maxHskPerBlock",
     "outputs": [
@@ -1384,13 +1466,6 @@ export const HashKeyChainStakingABI = [
   },
   {
     "inputs": [],
-    "name": "stake",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
     "name": "stakeEndTime",
     "outputs": [
       {
@@ -1549,19 +1624,6 @@ export const HashKeyChainStakingABI = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_sharesAmount",
-        "type": "uint256"
-      }
-    ],
-    "name": "unstake",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
         "name": "_stakeId",
         "type": "uint256"
       }
@@ -1618,6 +1680,24 @@ export const HashKeyChainStakingABI = [
   {
     "inputs": [
       {
+        "internalType": "enum HashKeyChainStakingStorage.StakeType",
+        "name": "_stakeType",
+        "type": "uint8"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_apr",
+        "type": "uint256"
+      }
+    ],
+    "name": "updateMaxAPRs",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "uint256",
         "name": "_maxHskPerBlock",
         "type": "uint256"
@@ -1644,13 +1724,6 @@ export const HashKeyChainStakingABI = [
   {
     "inputs": [],
     "name": "updateRewardPool",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "updateRewardPool1",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"

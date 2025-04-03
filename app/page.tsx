@@ -13,6 +13,7 @@ import axios from 'axios';
 import Image from 'next/image';
 import AddressBar from '@/components/AddressBar';
 import StartStake from '@/components/app/StartStake';
+import CalApr from '@/components/app/CalApr';
 
 export default function Home() {
   // 添加本地loading状态，初始为true
@@ -338,6 +339,7 @@ export default function Home() {
       <div className="min-h-screen text-white">
         {/* Hero Section */}
         <div className="container mx-auto px-4 pt-16 pb-8">
+        <CalApr />
         {/* <div className="container mx-auto px-4 pt-16 pb-24"> */}
           <div className="text-center mb-16">
             <h1 className="text-5xl font-light text-white mb-6 font-sora">HashKey Chain Staking</h1>

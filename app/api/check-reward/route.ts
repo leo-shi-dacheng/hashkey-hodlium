@@ -1,13 +1,13 @@
 import { createPublicClient, http, createWalletClient, encodeFunctionData } from 'viem'
-import { hashkeyTestnet } from 'viem/chains'
+import { hashkey } from 'viem/chains'
 import { getContractAddresses } from '@/config/contracts';
 import { privateKeyToAccount } from 'viem/accounts';
 import { NextResponse } from 'next/server';
 
 // Constants
 const BLOCK_THRESHOLD = 200n;
-// const RPC_URL = "https://mainnet.hsk.xyz"; 
-const RPC_URL = "https://hashkeychain-testnet.alt.technology"; 
+const RPC_URL = "https://mainnet.hsk.xyz"; 
+// const RPC_URL = "https://hashkeychain-testnet.alt.technology"; 
 
 // Contract configuration 
 const getClients = () => {
@@ -22,13 +22,13 @@ const getClients = () => {
   
   // Create public client
   const publicClient = createPublicClient({
-    chain: hashkeyTestnet,
+    chain: hashkey,
     transport: http(RPC_URL)
   });
   
   // Create wallet client with the account
   const walletClient = createWalletClient({
-    chain: hashkeyTestnet,
+    chain: hashkey,
     transport: http(RPC_URL),
     account
   });
@@ -39,7 +39,7 @@ const getClients = () => {
 async function checkAndUpdateRewardPool() {
   try {
     const { publicClient, walletClient, account } = getClients();
-    const chainId = hashkeyTestnet.id;
+    const chainId = hashkey.id;
     const contractAddress = getContractAddresses(chainId).stakingContract;
     
     console.log('Checking if reward pool needs updating...');
@@ -107,7 +107,7 @@ async function checkAndUpdateRewardPool() {
           gasPrice,
           gas: BigInt(Math.floor(Number(gasLimit) * 1.2)), // Add 20% buffer
           nonce,
-          chainId: hashkeyTestnet.id
+          chainId: hashkey.id
         });
         
         console.log('Signed raw transaction');
@@ -182,4 +182,4 @@ export async function POST() {
   return GET();
 }
 
-// curl -X POST "https://hashkeyTestnet-hodlium.vercel.app/api/time"
+// curl -X POST "https://hashkey-hodlium.vercel.app/api/time"
