@@ -467,7 +467,6 @@ export async function batchGetStakingInfo(contractAddress: string, publicClient:
 
     // Generate stakeIds array based on actual count
     const actualStakeIds = Array.from({ length: Number(count) }, (_, i) => i);
-    debugger;
     const results = [];
 
     // Get info for each stake

@@ -32,7 +32,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
     //   path: '/',
     // },
     {
-      name: 'User Stakes',
+      name: 'Board',
       path: '/portfolio',
     },
   ];
