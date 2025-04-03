@@ -99,7 +99,7 @@ export function useOldStakingInfo(simulatedAmount: string = '1000') {
 }
 
 // 获取用户的质押信息
-export function useUserStakingInfo() {
+export function useUserStakingInfo(queryAddress?: string) {
   const { address } = useAccount();
   const chainId = useChainId();
   const [isLoading, setIsLoading] = useState(true);
@@ -111,7 +111,8 @@ export function useUserStakingInfo() {
 
   useEffect(() => {
     const fetchStakingInfo = async () => {
-      if (!address || !publicClient) {
+      const targetAddress = queryAddress || address;
+      if (!targetAddress || !publicClient) {
         setIsLoading(false);
         return;
       }
@@ -125,14 +126,14 @@ export function useUserStakingInfo() {
           address: contractAddress,
           abi: HashKeyChainStakingABI,
           functionName: 'getUserLockedStakeCount',
-          args: [address],
+          args: [targetAddress],
         });
         
         const active = await publicClient.readContract({
           address: contractAddress,
           abi: HashKeyChainStakingABI,
           functionName: 'getUserActiveLockedStakes',
-          args: [address],
+          args: [targetAddress],
         });
 
         setLockedStakeCount(count as bigint);
@@ -145,7 +146,7 @@ export function useUserStakingInfo() {
     };
 
     fetchStakingInfo();
-  }, [address, chainId, publicClient]);
+  }, [address, chainId, publicClient, queryAddress]);
 
   return {
     lockedStakeCount,
@@ -279,7 +280,7 @@ export function useUnstakeLocked() {
 }
 
 // 获取锁定质押信息
-export function useLockedStakeInfo(stakeId: number | null) {
+export function useLockedStakeInfo(stakeId: number | null, queryAddress?: string) {
   const chainId = useChainId();
   const contractAddress = getContractAddresses(chainId).stakingOldContract;
   const publicClient = usePublicClient();
@@ -308,7 +309,8 @@ export function useLockedStakeInfo(stakeId: number | null) {
   });
   
   useEffect(() => {
-    if (!publicClient || !contractAddress || !address || stakeId === null) return;
+    const targetAddress = queryAddress || address;
+    if (!publicClient || !contractAddress || !targetAddress || stakeId === null) return;
     
     const fetchStakeInfo = async () => {
       setData(prev => ({ ...prev, isLoading: true, error: null }));
@@ -318,7 +320,7 @@ export function useLockedStakeInfo(stakeId: number | null) {
           address: contractAddress,
           abi: HashKeyChainStakingABI,
           functionName: 'getLockedStakeInfo',
-          args: [address, BigInt(stakeId)]
+          args: [targetAddress, BigInt(stakeId)]
         }) as [bigint, bigint, bigint, bigint, boolean, boolean];
         
         // 计算收益
@@ -346,7 +348,7 @@ export function useLockedStakeInfo(stakeId: number | null) {
     };
     
     fetchStakeInfo();
-  }, [publicClient, contractAddress, address, stakeId]);
+  }, [publicClient, contractAddress, targetAddress, stakeId]);
   
   return data;
 }

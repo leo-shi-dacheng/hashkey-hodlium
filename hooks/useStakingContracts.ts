@@ -103,7 +103,7 @@ export function useStakingInfo(simulatedAmount: string = '1000') {
 }
 
 // 获取用户的质押信息
-export function useUserStakingInfo() {
+export function useUserStakingInfo(queryAddress?: string) {
   const { address } = useAccount();
   const chainId = useChainId();
   const [isLoading, setIsLoading] = useState(true);
@@ -115,7 +115,8 @@ export function useUserStakingInfo() {
 
   useEffect(() => {
     const fetchStakingInfo = async () => {
-      if (!address || !publicClient) {
+      const targetAddress = queryAddress || address;
+      if (!targetAddress || !publicClient) {
         setIsLoading(false);
         return;
       }
@@ -129,14 +130,14 @@ export function useUserStakingInfo() {
           address: contractAddress,
           abi: HashKeyChainStakingABI,
           functionName: 'getUserLockedStakeCount',
-          args: [address],
+          args: [targetAddress],
         });
         
         const active = await publicClient.readContract({
           address: contractAddress,
           abi: HashKeyChainStakingABI,
           functionName: 'getUserActiveLockedStakes',
-          args: [address],
+          args: [targetAddress],
         });
 
         setLockedStakeCount(count as bigint);
@@ -149,7 +150,7 @@ export function useUserStakingInfo() {
     };
 
     fetchStakingInfo();
-  }, [address, chainId, publicClient]);
+  }, [address, chainId, publicClient, queryAddress]);
 
   return {
     lockedStakeCount,
@@ -319,7 +320,7 @@ export function useUnstakeLocked() {
 }
 
 // 获取锁定质押信息
-export function useLockedStakeInfo(stakeId: number | null) {
+export function useLockedStakeInfo(stakeId: number | null, queryAddress?: string) {
   const chainId = useChainId();
   const contractAddress = getContractAddresses(chainId).stakingContract;
   const publicClient = usePublicClient();
@@ -348,7 +349,8 @@ export function useLockedStakeInfo(stakeId: number | null) {
   });
   
   useEffect(() => {
-    if (!publicClient || !contractAddress || !address || stakeId === null) return;
+    const targetAddress = queryAddress || address;
+    if (!publicClient || !contractAddress || !targetAddress || stakeId === null) return;
     
     const fetchStakeInfo = async () => {
       setData(prev => ({ ...prev, isLoading: true, error: null }));
@@ -358,7 +360,7 @@ export function useLockedStakeInfo(stakeId: number | null) {
           address: contractAddress as `0x${string}`,
           abi: HashKeyChainStakingABI,
           functionName: 'getLockedStakeInfo',
-          args: [address, BigInt(stakeId)]
+          args: [targetAddress, BigInt(stakeId)]
         }) as [bigint, bigint, bigint, bigint, boolean, boolean];
         
         // 计算收益
@@ -386,7 +388,7 @@ export function useLockedStakeInfo(stakeId: number | null) {
     };
     
     fetchStakeInfo();
-  }, [publicClient, contractAddress, address, stakeId]);
+  }, [publicClient, contractAddress, targetAddress, stakeId]);
   
   return data;
 }
@@ -454,60 +456,63 @@ export function useStakeReward(stakeId: number | null) {
 
 // 根据 ABI 修改 batchGetStakingInfo 函数
 export async function batchGetStakingInfo(contractAddress: string, publicClient: PublicClient, stakeIds: number[], userAddress: string) {
-  const results = [];
-  
-  for (const id of stakeIds) {
-    try {
-      // 获取锁定质押信息，返回值格式：
-      // sharesAmount, hskAmount, currentHskValue, lockEndTime, isWithdrawn, isLocked
-      const stakeInfo = await publicClient.readContract({
-        address: contractAddress as `0x${string}`,
-        abi: HashKeyChainStakingABI,
-        functionName: 'getLockedStakeInfo',
-        args: [userAddress, BigInt(id)]
-      }) as [bigint, bigint, bigint, bigint, boolean, boolean];
-      
-      // 获取质押奖励信息
-      const rewardInfo = await publicClient.readContract({
-        address: contractAddress as `0x${string}`,
-        abi: HashKeyChainStakingABI,
-        functionName: 'getStakeReward',
-        args: [userAddress, BigInt(id)]
-      }) as [bigint, bigint, bigint, bigint];
-      
-      // 收益 = 当前价值 - 初始质押金额
-      const reward = stakeInfo[2] - stakeInfo[1];
-      
-      results.push({
-        id,
-        sharesAmount: stakeInfo[0],    // 份额数量
-        hskAmount: stakeInfo[1],       // 初始质押的 HSK 金额
-        currentHskValue: stakeInfo[2],  // 当前价值（包含收益）
-        lockEndTime: stakeInfo[3],     // 锁定结束时间
-        isWithdrawn: stakeInfo[4],     // 是否已提取
-        isLocked: stakeInfo[5],        // 是否仍在锁定
-        reward: reward,                // 计算的收益
-        actualReward: rewardInfo[2],   // 实际奖励
-        error: null
-      });
-    } catch (error) {
-      console.error(`获取质押 ${id} 失败:`, error);
-      results.push({
-        id,
-        sharesAmount: BigInt(0),
-        hskAmount: BigInt(0),
-        currentHskValue: BigInt(0),
-        lockEndTime: BigInt(0),
-        isWithdrawn: false,
-        isLocked: false,
-        reward: BigInt(0),
-        actualReward: BigInt(0),
-        error: error
-      });
+  try {
+    // First get the total stake count for the user
+    const count = await publicClient.readContract({
+      address: contractAddress as `0x${string}`,
+      abi: HashKeyChainStakingABI,
+      functionName: 'getUserLockedStakeCount',
+      args: [userAddress],
+    }) as bigint;
+
+    // Generate stakeIds array based on actual count
+    const actualStakeIds = Array.from({ length: Number(count) }, (_, i) => i);
+    debugger;
+    const results = [];
+
+    // Get info for each stake
+    for (const id of actualStakeIds) {
+      try {
+        const stakeInfo = await publicClient.readContract({
+          address: contractAddress as `0x${string}`,
+          abi: HashKeyChainStakingABI,
+          functionName: 'getLockedStakeInfo',
+          args: [userAddress, BigInt(id)]
+        }) as [bigint, bigint, bigint, bigint, boolean, boolean];
+        
+        const rewardInfo = await publicClient.readContract({
+          address: contractAddress as `0x${string}`,
+          abi: HashKeyChainStakingABI,
+          functionName: 'getStakeReward',
+          args: [userAddress, BigInt(id)]
+        }) as [bigint, bigint, bigint, bigint];
+        
+        // 收益 = 当前价值 - 初始质押金额
+        const reward = stakeInfo[2] - stakeInfo[1];
+        
+        results.push({
+          id,
+          sharesAmount: stakeInfo[0],    // 份额数量
+          hskAmount: stakeInfo[1],       // 初始质押的 HSK 金额
+          currentHskValue: stakeInfo[2],  // 当前价值（包含收益）
+          lockEndTime: stakeInfo[3],     // 锁定结束时间
+          isWithdrawn: stakeInfo[4],     // 是否已提取
+          isLocked: stakeInfo[5],        // 是否仍在锁定
+          reward: reward,                // 计算的收益
+          actualReward: rewardInfo[2],   // 实际奖励
+          error: null
+        });
+      } catch (error) {
+        console.error(`Failed to fetch stake info for ID ${id}:`, error);
+        results.push({ id, error: 'Failed to fetch stake info' });
+      }
     }
+    
+    return results;
+  } catch (error) {
+    console.error('Failed to get stake count:', error);
+    return [];
   }
-  
-  return results;
 }
 
 // 获取所有质押APR数据

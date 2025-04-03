@@ -23,6 +23,8 @@ interface FlexibleStakeInfo {
 }
 
 interface FlexibleStakingPositionsProps {
+  queryAddress: string;
+  isViewingOwnPortfolio: boolean;
   onTotalRewardsChange: (rewards: bigint) => void;
   isLoadingPositions: boolean;
   setIsLoadingPositions: (loading: boolean) => void;
@@ -52,6 +54,8 @@ const formatTimeRemaining = (endTime: bigint) => {
 };
 
 const FlexibleStakingPositions: React.FC<FlexibleStakingPositionsProps> = ({
+  queryAddress,
+  isViewingOwnPortfolio,
   onTotalRewardsChange,
   isLoadingPositions,
   setIsLoadingPositions,
@@ -71,11 +75,11 @@ const FlexibleStakingPositions: React.FC<FlexibleStakingPositionsProps> = ({
 
   // 使用 useCallback 避免 fetchFlexiblePositions 频繁更新
   const fetchFlexiblePositions = useCallback(async () => {
-    if (!isConnected || !address || !flexibleStakeCount || !publicClient) return;
+    if (!publicClient || !queryAddress) return;
     setIsLoadingPositions(true);
     try {
-      const flexibleStakeIds = Array.from({ length: Number(flexibleStakeCount) }, (_, i) => i);
-      const flexibleStakesInfo = await batchGetFlexibleStakingInfo(contractAddress, publicClient, flexibleStakeIds, address);
+      const flexibleStakeIds = Array.from({ length: 100 }, (_, i) => i);
+      const flexibleStakesInfo = await batchGetFlexibleStakingInfo(contractAddress, publicClient, flexibleStakeIds, queryAddress);
       const flexibleTotalReward = flexibleStakesInfo
         .filter(info => !info.error && info.stakingStatus === FlexibleStakeStatus.ACTIVE)
         .reduce((sum, info) => sum + info.reward, BigInt(0));
@@ -96,50 +100,11 @@ const FlexibleStakingPositions: React.FC<FlexibleStakingPositionsProps> = ({
       setFlexibleStakedPositions(flexiblePositions);
     } catch (error) {
       console.error('Failed to fetch flexible staked positions:', error);
-      toast.error('Failed to load your flexible stakes');
+      toast.error('Failed to load flexible stakes');
     } finally {
       setIsLoadingPositions(false);
     }
-  }, [address, isConnected, flexibleStakeCount, publicClient, contractAddress, setIsLoadingPositions]);
-
-  // 仅在必要时触发 useEffect，避免无限刷新
-  useEffect(() => {
-    fetchFlexiblePositions();
-  }, [fetchFlexiblePositions]);
-
-  const handleFlexibleUnstake = async (stakeId: number) => {
-    if (processingStakeId !== null) return;
-    setProcessingStakeId(stakeId);
-    try {
-      const success = await requestUnstakeFlexible(stakeId);
-      if (success) {
-        toast.success('Successfully requested unstake');
-        fetchFlexiblePositions(); // 重新加载数据
-      }
-    } catch (error) {
-      console.error('Failed to unstake flexible stake:', error);
-      toast.error('Failed to unstake');
-    } finally {
-      setProcessingStakeId(null);
-    }
-  };
-
-  const handleClaimWithdrawal = async (withdrawalId: number) => {
-    if (processingStakeId !== null) return;
-    setProcessingStakeId(withdrawalId);
-    try {
-      const success = await claimWithdrawal(withdrawalId); // 假设 useClaimWithdrawal 返回 success
-      if (success) {
-        toast.success('Successfully claimed withdrawal');
-        fetchFlexiblePositions(); // 重新加载数据
-      }
-    } catch (error) {
-      console.error('Failed to claim withdrawal:', error);
-      toast.error('Failed to claim withdrawal');
-    } finally {
-      setProcessingStakeId(null);
-    }
-  };
+  }, [publicClient, contractAddress]);
 
   return (
     <div className="space-y-4">
@@ -182,15 +147,6 @@ const FlexibleStakingPositions: React.FC<FlexibleStakingPositionsProps> = ({
                   </p>
                 </div>
               </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={() => handleFlexibleUnstake(position.id)}
-                  disabled={processingStakeId === position.id}
-                  className="px-4 py-2 rounded bg-primary/80 hover:bg-primary text-white disabled:bg-slate-600 disabled:cursor-not-allowed"
-                >
-                  {processingStakeId === position.id ? 'Processing...' : 'Request Unstake'}
-                </button>
-              </div>
             </div>
           ))
       )}
@@ -215,18 +171,16 @@ const FlexibleStakingPositions: React.FC<FlexibleStakingPositionsProps> = ({
                   </p>
                 </div>
               </div>
-              <div className="flex justify-end">
-                <button
-                  onClick={() => handleClaimWithdrawal(withdrawal.id)}
-                  disabled={withdrawal.countdown > 0 || processingStakeId === withdrawal.id}
-                  className="px-4 py-2 rounded bg-primary/80 hover:bg-primary text-white disabled:bg-slate-600 disabled:cursor-not-allowed"
-                >
-                  {processingStakeId === withdrawal.id ? 'Processing...' : 'Claim'}
-                </button>
-              </div>
             </div>
           ))}
         </>
+      )}
+
+      {/* Only show action buttons if viewing own portfolio */}
+      {isViewingOwnPortfolio && (
+        <div className="mt-6">
+          {/* Add your action buttons here */}
+        </div>
       )}
     </div>
   );

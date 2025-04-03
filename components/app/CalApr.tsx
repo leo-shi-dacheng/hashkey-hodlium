@@ -7,33 +7,21 @@ import { useStakedInfo, useRewardsInfo, getShareToCurrentByType } from '@/hooks/
 
 export default function StartStake() {
     const publicClient = usePublicClient();
-    
     const stakedData = useStakedInfo();
-    console.log('stakedData 111', stakedData);
-    const data111 = useRewardsInfo();
-    console.log('totalRewardData 111', data111);
-
-    // const stakedData = {
-    //     totalStaked: BigInt("5246940933527082807258667"),
-    //     exchangeRate: BigInt("1001157145415442822"),
-    //     valueLocked30: BigInt("449443651869074766131770"),
-    //     valueLocked90: BigInt("276307905182460152103813"),
-    //     valueLocked180: BigInt("276307905182460152103813"),
-    //     valueLocked365: BigInt("4318563053020904177209404"),
-    //     valueLockedFlexiable: BigInt("93855107172968589023320"),
-    //     bonus90: BigInt("2210463241459681216830"),
-    //     bonus180: BigInt("5526158103649203042076"),
-    //     bonus365: BigInt("172742522120836167088376"),
-    //     totalBonus: BigInt("180479"),
-    // };
-
-    const totalRewardData = {
-        totalPooled: BigInt("5246940933527082807258667"),
-        totalShares: BigInt("5240876477338428516243898"),
-        totalPaid: BigInt("1887447446459189033377"),
-        reserved: BigInt("0"),
-        contractBalance: BigInt("5315391888699764287006038"),
-    };
+    const {totalRewardData} = useRewardsInfo();
+    console.log("stakedData", stakedData);
+    console.log("totalRewardData", totalRewardData);
+    // If either data source is not ready, show loading state
+    if (!stakedData?.totalStaked || !totalRewardData) {
+        return (
+            <div className="flex items-center justify-center min-h-[400px]">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full"></div>
+                    <p className="text-slate-400">Loading contract data...</p>
+                </div>
+            </div>
+        );
+    }
 
     const formatValue = (amount) => {
         const formatted = formatEther(amount);
@@ -43,6 +31,13 @@ export default function StartStake() {
         } else {
             return formatted;
         }
+    };
+
+    const calculateAnnualRewards = (blockReward: bigint): bigint => {
+        const secondsPerYear = 365 * 24 * 60 * 60; // seconds in a year
+        const blocksPerSecond = 1n / 2n; // 2 seconds per block -> 0.5 blocks per second
+        const blocksPerYear = BigInt(secondsPerYear) * blocksPerSecond;
+        return blockReward * blocksPerYear;
     };
 
     const stakedDataRows = [
@@ -62,17 +57,13 @@ export default function StartStake() {
     const rewardDataRows = [
         { label: "总池", value: formatValue(totalRewardData!.totalPooled) },
         { label: "总份额", value: formatValue(totalRewardData!.totalShares) },
-        { label: "总支付奖励", value: formatValue(totalRewardData!.totalPaid) },
+        { label: "每区块奖励", value: formatValue(totalRewardData!.totalPaid) },
+        { label: "全年总额奖励", value: formatValue(calculateAnnualRewards(totalRewardData!.totalPaid)) },
         { label: "保留额", value: formatValue(totalRewardData!.reserved) },
         { label: "合约 balance", value: formatValue(totalRewardData!.contractBalance) },
     ];
 
-
-    setTimeout(async () => {
-    }, 3000);
- 
-
-   return (
+    return (
         <div>
             <h2 className="text-2xl font-semibold mb-4">质押数据</h2>
             <table className="table table-zebra w-full">

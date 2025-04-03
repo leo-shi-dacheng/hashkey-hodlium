@@ -49,7 +49,15 @@ const batchGetOldStakingInfo = async (
   return results;
 };
 
-const OldStakingPositions = () => {
+interface OldStakingPositionsProps {
+  queryAddress: string;
+  isViewingOwnPortfolio: boolean;
+}
+
+const OldStakingPositions: React.FC<OldStakingPositionsProps> = ({
+  queryAddress,
+  isViewingOwnPortfolio
+}) => {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
@@ -65,13 +73,13 @@ const OldStakingPositions = () => {
 
   // 获取老质押数据的函数
   const fetchOldStakedPositions = useCallback(async () => {
-    if (!isConnected || !address || !lockedStakeCount || !publicClient) return;
+    if (!queryAddress || !publicClient) return;
 
     setIsLoadingPositions(true);
 
     try {
-      const stakeIds = Array.from({ length: Number(lockedStakeCount) }, (_, i) => i);
-      const oldStakesInfo = await batchGetOldStakingInfo(oldContractAddress, publicClient, stakeIds, address);
+      const stakeIds = Array.from({ length: 100 }, (_, i) => i);
+      const oldStakesInfo = await batchGetOldStakingInfo(oldContractAddress, publicClient, stakeIds, queryAddress);
 
       const positions = oldStakesInfo
         .filter((info) => !info.error)
@@ -97,14 +105,14 @@ const OldStakingPositions = () => {
     } finally {
       setIsLoadingPositions(false);
     }
-  }, [address, isConnected, lockedStakeCount, publicClient, oldContractAddress]);
+  }, [publicClient, oldContractAddress]);
 
-  // 初始化和定期刷新数据
+  // 初始化数据
   useEffect(() => {
-    fetchOldStakedPositions();
-    const intervalId = setInterval(fetchOldStakedPositions, 300000); // 每 5 分钟刷新一次
-    return () => clearInterval(intervalId);
-  }, [fetchOldStakedPositions]);
+    if (queryAddress) {
+      fetchOldStakedPositions(); // Only fetch when query address is initially set
+    }
+  }, [queryAddress]);
 
   // 处理升级操作
   const handleUpgradeOldClick = async (stakeId: number) => {
@@ -234,7 +242,7 @@ const OldStakingPositions = () => {
                       </p>
                     </div>
                   </div>
-                  {!position.info.isWithdrawn && (
+                  {!position.info.isWithdrawn && isViewingOwnPortfolio && (
                     <div className="flex justify-end">
                       <button
                         onClick={() => handleUpgradeOldClick(position.id)}

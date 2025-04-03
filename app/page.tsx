@@ -341,34 +341,6 @@ export default function Home() {
         <div className="container mx-auto px-4 pt-16 pb-8">
         <CalApr />
         {/* <div className="container mx-auto px-4 pt-16 pb-24"> */}
-          <div className="text-center mb-16">
-            <h1 className="text-5xl font-light text-white mb-6 font-sora">HashKey Chain Staking</h1>
-            <p className="text-xl text-slate-300 max-w-3xl mx-auto">
-              Securely stake your HSK tokens and earn passive income with competitive APR
-            </p>
-            
-            {/* Call to action button */}
-            <StartStake />
-            {/* <div className="mt-10">
-              <Link 
-                href="/stake" 
-                className="inline-flex items-center px-8 py-4 rounded-xl bg-primary/80 text-white hover:bg-primary transition-colors text-lg font-medium shadow-lg hover:shadow-xl"
-              >
-                Start Staking
-                <svg className="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-              </Link>
-            </div> */}
-            
-            {/* AddressBar component placed here */}
-            {/* <div className="mt-10 flex justify-center">
-              <div className="w-full max-w-2xl">
-                <AddressBar />
-              </div>
-            </div> */}
-          </div>
-          
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
             {/* Total Staked Card */}
@@ -523,43 +495,6 @@ export default function Home() {
                 </div>
               </div>
             ))}
-          </div>
-          
-          {/* Features Section */}
-          <div className="max-w-4xl mx-auto mt-20">
-            <h2 className="text-3xl font-light mb-10 text-center text-white">Key Benefits</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4">
-                  <svg className="w-8 h-8 text-primary/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-medium text-white mb-2">Competitive APR</h3>
-                <p className="text-slate-400">Earn up to 12% annual returns on your staked HSK tokens</p>
-              </div>
-              
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4">
-                  <svg className="w-8 h-8 text-primary/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-medium text-white mb-2">Security First</h3>
-                <p className="text-slate-400">Your assets are protected by industry-leading security protocols</p>
-              </div>
-              
-              <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center mb-4">
-                  <svg className="w-8 h-8 text-primary/80" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-medium text-white mb-2">Auto-Compounding</h3>
-                <p className="text-slate-400">Rewards automatically accumulate to maximize your returns</p>
-              </div>
-            </div>
           </div>
         </div>
       </div>

@@ -215,7 +215,7 @@ export function useClaimWithdrawal() {
 }
 
 // 5. useUserFlexibleStakingInfo - 获取用户灵活质押信息
-export function useUserFlexibleStakingInfo() {
+export function useUserFlexibleStakingInfo(queryAddress?: string) {
   const { address } = useAccount();
   const chainId = useChainId();
   const publicClient = usePublicClient();
@@ -225,7 +225,8 @@ export function useUserFlexibleStakingInfo() {
 
   useEffect(() => {
     const fetchStakingInfo = async () => {
-      if (!address || !publicClient) {
+      const targetAddress = queryAddress || address;
+      if (!targetAddress || !publicClient) {
         setIsLoading(false);
         return;
       }
@@ -234,22 +235,22 @@ export function useUserFlexibleStakingInfo() {
         setIsLoading(true);
         const contractAddress = getContractAddresses(chainId).stakingContract;
 
-        const count = (await publicClient.readContract({
+        const count = await publicClient.readContract({
           address: contractAddress,
           abi: HashKeyChainStakingABI,
           functionName: 'getUserFlexibleStakeCount',
-          args: [address],
-        })) as bigint;
+          args: [targetAddress],
+        });
 
-        const active = (await publicClient.readContract({
+        const active = await publicClient.readContract({
           address: contractAddress,
           abi: HashKeyChainStakingABI,
           functionName: 'getUserActiveFlexibleStakes',
-          args: [address],
-        })) as bigint;
+          args: [targetAddress],
+        });
 
-        setFlexibleStakeCount(count);
-        setActiveFlexibleStakes(active);
+        setFlexibleStakeCount(count as bigint);
+        setActiveFlexibleStakes(active as bigint);
       } catch (error) {
         console.error('Failed to fetch flexible staking info:', error);
       } finally {
@@ -258,7 +259,7 @@ export function useUserFlexibleStakingInfo() {
     };
 
     fetchStakingInfo();
-  }, [address, chainId, publicClient]);
+  }, [address, chainId, publicClient, queryAddress]);
 
   return {
     flexibleStakeCount,
@@ -268,11 +269,12 @@ export function useUserFlexibleStakingInfo() {
 }
 
 // 6. useFlexibleStakeInfo - 获取指定灵活质押信息
-export function useFlexibleStakeInfo(stakeId: number | null) {
+export function useFlexibleStakeInfo(stakeId: number | null, queryAddress?: string) {
   const chainId = useChainId();
   const contractAddress = getContractAddresses(chainId).stakingContract;
   const publicClient = usePublicClient();
   const { address } = useAccount();
+  const targetAddress = queryAddress || address;
 
   const [data, setData] = useState<{
     sharesAmount: bigint;
@@ -293,7 +295,7 @@ export function useFlexibleStakeInfo(stakeId: number | null) {
   });
 
   useEffect(() => {
-    if (!publicClient || !contractAddress || !address || stakeId === null) return;
+    if (!publicClient || !contractAddress || !targetAddress || stakeId === null) return;
 
     const fetchStakeInfo = async () => {
       setData((prev) => ({ ...prev, isLoading: true, error: null }));
@@ -302,7 +304,7 @@ export function useFlexibleStakeInfo(stakeId: number | null) {
           address: contractAddress as `0x${string}`,
           abi: HashKeyChainStakingABI,
           functionName: 'getFlexibleStakeInfo',
-          args: [address, BigInt(stakeId)],
+          args: [targetAddress, BigInt(stakeId)],
         })) as [bigint, bigint, bigint, bigint, number];
 
         setData({
@@ -325,7 +327,7 @@ export function useFlexibleStakeInfo(stakeId: number | null) {
     };
 
     fetchStakeInfo();
-  }, [publicClient, contractAddress, address, stakeId]);
+  }, [publicClient, contractAddress, targetAddress, stakeId]);
 
   return data;
 }
@@ -337,56 +339,62 @@ export async function batchGetFlexibleStakingInfo(
   stakeIds: number[],
   userAddress: string
 ) {
-  const results = [];
+  try {
+    // First get the total flexible stake count
+    const count = await publicClient.readContract({
+      address: contractAddress as `0x${string}`,
+      abi: HashKeyChainStakingABI,
+      functionName: 'getUserFlexibleStakeCount',
+      args: [userAddress],
+    }) as bigint;
 
-  for (const id of stakeIds) {
-    try {
-      const stakeInfo = (await publicClient.readContract({
-        address: contractAddress as `0x${string}`,
-        abi: HashKeyChainStakingABI,
-        functionName: 'getFlexibleStakeInfo',
-        args: [userAddress, BigInt(id)],
-      })) as [bigint, bigint, bigint, bigint, number];
+    // Generate stakeIds array based on actual count
+    const actualStakeIds = Array.from({ length: Number(count) }, (_, i) => i);
+    const results = [];
 
-      const rewardInfo = (await publicClient.readContract({
-        address: contractAddress as `0x${string}`,
-        abi: HashKeyChainStakingABI,
-        functionName: 'getFlexibleStakeReward',
-        args: [userAddress, BigInt(id)],
-      })) as [bigint, bigint, bigint, bigint];
+    for (const id of actualStakeIds) {
+      try {
+        const stakeInfo = await publicClient.readContract({
+          address: contractAddress as `0x${string}`,
+          abi: HashKeyChainStakingABI,
+          functionName: 'getFlexibleStakeInfo',
+          args: [userAddress, BigInt(id)],
+        }) as [bigint, bigint, bigint, bigint, number];
 
-      results.push({
-        id,
-        sharesAmount: stakeInfo[0],
-        hskAmount: stakeInfo[1],
-        currentHskValue: stakeInfo[2],
-        stakeBlock: stakeInfo[3],
-        stakingStatus: stakeInfo[4],
-        originalAmount: rewardInfo[0],
-        reward: rewardInfo[1],
-        actualReward: rewardInfo[2],
-        totalValue: rewardInfo[3],
-        error: null,
-      });
-    } catch (error) {
-      console.error(`获取灵活质押 ${id} 失败:`, error);
-      results.push({
-        id,
-        sharesAmount: BigInt(0),
-        hskAmount: BigInt(0),
-        currentHskValue: BigInt(0),
-        stakeBlock: BigInt(0),
-        stakingStatus: 0,
-        originalAmount: BigInt(0),
-        reward: BigInt(0),
-        actualReward: BigInt(0),
-        totalValue: BigInt(0),
-        error: error,
-      });
+        const rewardInfo = await publicClient.readContract({
+          address: contractAddress as `0x${string}`,
+          abi: HashKeyChainStakingABI,
+          functionName: 'getFlexibleStakeReward',
+          args: [userAddress, BigInt(id)],
+        }) as [bigint, bigint, bigint, bigint];
+
+        results.push({
+          id,
+          sharesAmount: stakeInfo[0],
+          hskAmount: stakeInfo[1],
+          currentHskValue: stakeInfo[2],
+          stakeBlock: stakeInfo[3],
+          stakingStatus: stakeInfo[4],
+          originalAmount: rewardInfo[0],
+          reward: rewardInfo[1],
+          actualReward: rewardInfo[2],
+          totalValue: rewardInfo[3],
+          error: null,
+        });
+      } catch (error) {
+        console.error(`Failed to fetch flexible stake ${id}:`, error);
+        results.push({
+          id,
+          error: error
+        });
+      }
     }
-  }
 
-  return results;
+    return results;
+  } catch (error) {
+    console.error('Failed to get flexible stake count:', error);
+    return [];
+  }
 }
 
 // 8. usePendingWithdrawals - 获取用户正在取款的信息
