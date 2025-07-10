@@ -163,7 +163,7 @@ export function useStakedInfo(simulatedAmount: string = '1000') {
 }
 
 // 获取用户的质押信息
-export function useRewardsInfo() {
+export function useRewardsInfo(blockNumber?: bigint) {
   const { address } = useAccount();
   const chainId = useChainId();
   const [isLoading, setIsLoading] = useState(true);
@@ -185,6 +185,7 @@ export function useRewardsInfo() {
           address: contractAddress,
           abi: HashKeyChainStakingABI,
           functionName: 'getRewardStatus',
+          blockNumber: blockNumber ? BigInt(blockNumber) : undefined,
         }) as [bigint, bigint, bigint, bigint, bigint];
         console.log('rewardData 1111111:', rewardData);
         const totalPooled = rewardData[0] as bigint;
@@ -203,8 +204,8 @@ export function useRewardsInfo() {
           address: contractAddress,
           abi: HashKeyChainStakingABI,
           functionName: 'hskPerBlock',
+          blockNumber: blockNumber ? BigInt(blockNumber) : undefined
         });
-        console.log('hskPerBlock:', hskPerBlock);
 
       } catch (error) {
         console.error('Failed to fetch staking info:', error);
@@ -225,7 +226,7 @@ export function useRewardsInfo() {
       );
     }
     fetchShare();
-  }, [address, chainId, publicClient]);
+  }, [address, chainId, publicClient, blockNumber]);
 
   return {
     totalRewardData,
@@ -260,7 +261,8 @@ async function estimateHSKForSharesByType(
   _sharesAmount: bigint,
   stakeType: number, // Assuming StakeType is an enum mapped to numbers
   days: number = 0, // Number of days for future estimation; 0 for current
-  averageBlockTime: number = 2
+  averageBlockTime: number = 2,
+  blockNumber?: bigint
 ): Promise<bigint> {
   // Fetch all necessary contract variables
   const [
@@ -277,51 +279,59 @@ async function estimateHSKForSharesByType(
       address: contractAddress as `0x${string}`,
       abi: HashKeyChainStakingABI,
       functionName: 'getRewardStatus',
+      blockNumber: blockNumber ? BigInt(blockNumber) : undefined
     }) as Promise<bigint[]>,
     // totalSharesByStakeType[stakeType]
     publicClient.readContract({
       address: contractAddress as `0x${string}`,
       abi: HashKeyChainStakingABI,
       functionName: 'totalSharesByStakeType',
-      args: [BigInt(stakeType)]
+      args: [BigInt(stakeType)],
+      blockNumber: blockNumber ? BigInt(blockNumber) : undefined
     }) as Promise<bigint>,
     // hskPerBlock
     publicClient.readContract({
       address: contractAddress as `0x${string}`,
       abi: HashKeyChainStakingABI,
-      functionName: 'hskPerBlock'
+      functionName: 'hskPerBlock',
+      blockNumber: blockNumber ? BigInt(blockNumber) : undefined
     }) as Promise<bigint>,
     // startBlock
     publicClient.readContract({
       address: contractAddress as `0x${string}`,
       abi: HashKeyChainStakingABI,
-      functionName: 'startBlock'
+      functionName: 'startBlock',
+      blockNumber: blockNumber ? BigInt(blockNumber) : undefined
     }) as Promise<bigint>,
     // totalPaidRewards
     publicClient.readContract({
       address: contractAddress as `0x${string}`,
       abi: HashKeyChainStakingABI,
-      functionName: 'totalPaidRewards'
+      functionName: 'totalPaidRewards',
+      blockNumber: blockNumber ? BigInt(blockNumber) : undefined
     }) as Promise<bigint>,
     // totalPooledHSK
     publicClient.readContract({
       address: contractAddress as `0x${string}`,
       abi: HashKeyChainStakingABI,
-      functionName: 'totalPooledHSK'
+      functionName: 'totalPooledHSK',
+      blockNumber: blockNumber ? BigInt(blockNumber) : undefined
     }) as Promise<bigint>,
     // maxAPR
     publicClient.readContract({
       address: contractAddress as `0x${string}`,
       abi: HashKeyChainStakingABI,
       functionName: 'maxAPRs',
-      args: [BigInt(stakeType)]
+      args: [BigInt(stakeType)],
+      blockNumber: blockNumber ? BigInt(blockNumber) : undefined
     }) as Promise<bigint>,
     // calculateCorrectionFactor(stakeType)
     publicClient.readContract({
       address: contractAddress as `0x${string}`,
       abi: HashKeyChainStakingABI,
       functionName: 'calculateCorrectionFactor',
-      args: [BigInt(stakeType)]
+      args: [BigInt(stakeType)],
+      blockNumber: blockNumber ? BigInt(blockNumber) : undefined
     }) as Promise<bigint>
   ]);
 
@@ -384,7 +394,8 @@ async function estimateHSKForSharesByType(
 export async function getShareToCurrentByType(
   publicClient: PublicClient, 
   hskAmount: bigint, 
-  type: StakeType
+  type: StakeType,
+  blockNumber?: bigint
 ) {
 
   const contractAddress = getContractAddresses(133).stakingContract;
@@ -403,7 +414,9 @@ export async function getShareToCurrentByType(
     publicClient,
     sharesAmount,
     type,
-    365
+    365,
+    2,
+    blockNumber
   );
 
   console.log(`after30 days 1111111111111`, afterAmount);

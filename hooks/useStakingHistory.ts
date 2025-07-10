@@ -37,14 +37,14 @@ interface StakingHistoryResult {
   tokenTransfers: TokenTransfer[];
 }
 
-export function useStakingHistory(userAddress?: string): StakingHistoryResult {
+export function useStakingHistory(userAddress?: string, blockNumber?: number): StakingHistoryResult {
   // 确保地址小写，The Graph 需要这种格式
   const formattedAddress = userAddress ? userAddress.toLowerCase() : '';
   
   const { data, loading, error, refetch } = useQuery<StakingHistoryData, StakingHistoryVars>(
     GET_USER_STAKING_HISTORY, 
     {
-      variables: { userAddress: formattedAddress },
+      variables: { userAddress: formattedAddress, blockNumber },
       skip: !userAddress,
       fetchPolicy: 'cache-and-network',
     }

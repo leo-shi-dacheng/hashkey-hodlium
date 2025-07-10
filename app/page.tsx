@@ -24,7 +24,36 @@ export default function PortfolioPage() {
   const contractAddress = getContractAddresses(chainId).stakingContract;
   const publicClient = usePublicClient();
   const [totalRewards, setTotalRewards] = useState<bigint>(BigInt(0));
-  const { estimatedAPRs, isLoading: aprsLoading } = useAllStakingAPRs();
+  const [blockNumber, setBlockNumber] = useState<bigint | undefined>();
+  const [selectedDateTime, setSelectedDateTime] = useState<string>(''); // New state for datetime-local input
+
+  const handleConvertDateTimeToBlockNumber = useCallback(async () => {
+    if (!selectedDateTime) {
+      toast.error('Please select a date and time.');
+      return;
+    }
+
+    // Convert selectedDateTime string to a Unix timestamp (seconds)
+    const timestamp = Math.floor(new Date(selectedDateTime).getTime() / 1000);
+    console.log(timestamp, 'timestamp');
+    try {
+      const response = await fetch(`/api/timestamp-to-block?timestamp=${timestamp}`);
+      const data = await response.json();
+
+      if (response.ok) {
+        setBlockNumber(BigInt(data.blockNumber));
+        toast.success(`Converted to Block Number: ${data.blockNumber}`);
+      } else {
+        toast.error(data.error || 'Failed to convert timestamp to block number.');
+        setBlockNumber(undefined);
+      }
+    } catch (error) {
+      console.error('Error fetching block number:', error);
+      toast.error('An error occurred while converting date/time to block number.');
+      setBlockNumber(undefined);
+    }
+  }, [selectedDateTime]);
+  const { estimatedAPRs, isLoading: aprsLoading } = useAllStakingAPRs('1000', blockNumber);
   const [aprDataSource, setAprDataSource] = useState<'contract' | 'loading'>('loading');
   const { flexibleStakeCount, activeFlexibleStakes, isLoading: loadingFlexibleInfo } = useUserFlexibleStakingInfo();
 
@@ -74,7 +103,8 @@ export default function PortfolioPage() {
     } else {
       setAprDataSource('loading');
     }
-  }, [aprsLoading, estimatedAPRs]);
+    fetchStakedPositions(); // Call fetchStakedPositions on component mount
+  }, [aprsLoading, estimatedAPRs, blockNumber]);
 
   const fetchStakedPositions = useCallback(async (targetAddress?: string) => {
     const addressToUse = targetAddress || queryAddress || address;
@@ -84,8 +114,8 @@ export default function PortfolioPage() {
 
     try {
       const stakeIds = Array.from({ length: 100 }, (_, i) => i);
-
-      const stakesInfo = await batchGetStakingInfo(contractAddress, publicClient, stakeIds, addressToUse);
+      console.log(blockNumber, 'blockNumber blockNumber');
+      const stakesInfo = await batchGetStakingInfo(contractAddress, publicClient, stakeIds, addressToUse, blockNumber);
 
       const confirmedTotalReward = stakesInfo
         .filter(info => !info.error && !info.isWithdrawn)
@@ -224,6 +254,40 @@ export default function PortfolioPage() {
             </div>
 
             <div className="mb-6 bg-slate-800/30 backdrop-blur-sm rounded-xl border border-slate-700/50 p-4">
+              
+              <div className="flex-grow">
+                <label htmlFor="dateTimeInput" className="block text-sm font-medium text-slate-400 mb-1">
+                  Or Select Date and Time （Optional） 默认当前
+                </label>
+                <div className="flex">
+                  <input
+                    id="dateTimeInput"
+                    type="datetime-local"
+                    value={selectedDateTime}
+                    onChange={(e) => setSelectedDateTime(e.target.value)}
+                    className="w-full bg-slate-900/50 border border-slate-600 rounded-l px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <button
+                    onClick={handleConvertDateTimeToBlockNumber}
+                    className="bg-primary hover:bg-primary-dark px-4 py-2 rounded-r text-white disabled:bg-slate-700 disabled:cursor-not-allowed transition-colors text-sm"
+                  >
+                    Convert
+                  </button>
+                </div>
+
+
+                <label htmlFor="blockNumberInput" className="block text-sm font-medium text-slate-400 mb-1">
+                  Block Number (Optional)
+                </label>
+                <input
+                  id="blockNumberInput"
+                  type="number"
+                  onChange={(e) => setBlockNumber(BigInt(e.target.value))}
+                  placeholder="Latest"
+                  className="w-full bg-slate-900/50 border border-slate-600 rounded px-4 py-2 text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-primary mb-2"
+                />
+                
+              </div>
               <div className="flex flex-col md:flex-row md:items-end gap-4">
                 <div className="flex-grow">
                   <label htmlFor="addressInput" className="block text-sm font-medium text-slate-400 mb-1">
@@ -263,6 +327,7 @@ export default function PortfolioPage() {
                   </button>
                 )}
               </div>
+    
 
               {(address || queryAddress) && (
                 <div className="mt-3 p-2 bg-slate-700/30 rounded flex items-center justify-between">
@@ -359,18 +424,15 @@ export default function PortfolioPage() {
                   <svg className="w-5 h-5 text-primary/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
                   </svg>
-                  <h3 className="text-sm font-medium text-primary/80">APY Range</h3>
+                  <h3 className="text-sm font-medium text-primary/80">365 APY</h3>
                 </div>
                 <div className="flex flex-col">
                   <p className="text-2xl font-medium text-white">
                     {aprsLoading ? (
                       <span className="inline-block w-24 h-7 bg-slate-700 rounded animate-pulse"></span>
                     ) : (
-                      `${(Number(estimatedAPRs?.[0] || 0) / 100).toFixed(2)}% - ${(Number(estimatedAPRs?.[3] || 0) / 100).toFixed(2)}%`
+                      `${(Number(estimatedAPRs?.[3] || 0) / 100).toFixed(2)}%`
                     )}
-                  </p>
-                  <p className="text-sm text-slate-400 mt-1">
-                    Flexible: {getFlexibleAPR()}
                   </p>
                 </div>
               </div>
@@ -462,10 +524,12 @@ export default function PortfolioPage() {
               processingStakeId={processingStakeId}
               setProcessingStakeId={setProcessingStakeId}
               getFlexibleAPR={getFlexibleAPR}
+              blockNumber={blockNumber}
             />
             <OldStakingPositions 
               queryAddress={queryAddress! || address!}
               isViewingOwnPortfolio={(queryAddress || address) === address}
+              blockNumber={blockNumber}
             />
           </div>
         </div>

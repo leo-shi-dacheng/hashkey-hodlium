@@ -456,7 +456,7 @@ export function useStakeReward(stakeId: number | null) {
 }
 
 // 根据 ABI 修改 batchGetStakingInfo 函数
-export async function batchGetStakingInfo(contractAddress: string, publicClient: PublicClient, stakeIds: number[], userAddress: string) {
+export async function batchGetStakingInfo(contractAddress: string, publicClient: PublicClient, stakeIds: number[], userAddress: string, blockNumber?: bigint) {
   try {
     // First get the total stake count for the user
     const count = await publicClient.readContract({
@@ -464,8 +464,10 @@ export async function batchGetStakingInfo(contractAddress: string, publicClient:
       abi: HashKeyChainStakingABI,
       functionName: 'getUserLockedStakeCount',
       args: [userAddress],
+      blockNumber
     }) as bigint;
 
+    console.log(blockNumber, 'batchGetStakingInfo blockNumber');
     // Generate stakeIds array based on actual count
     const actualStakeIds = Array.from({ length: Number(count) }, (_, i) => i);
     const results = [];
@@ -477,14 +479,16 @@ export async function batchGetStakingInfo(contractAddress: string, publicClient:
           address: contractAddress as `0x${string}`,
           abi: HashKeyChainStakingABI,
           functionName: 'getLockedStakeInfo',
-          args: [userAddress, BigInt(id)]
+          args: [userAddress, BigInt(id)],
+          blockNumber
         }) as [bigint, bigint, bigint, bigint, boolean, boolean];
         
         const rewardInfo = await publicClient.readContract({
           address: contractAddress as `0x${string}`,
           abi: HashKeyChainStakingABI,
           functionName: 'getStakeReward',
-          args: [userAddress, BigInt(id)]
+          args: [userAddress, BigInt(id)],
+          blockNumber
         }) as [bigint, bigint, bigint, bigint];
         
         // Ensure both values are BigInt before subtraction
@@ -518,7 +522,7 @@ export async function batchGetStakingInfo(contractAddress: string, publicClient:
 }
 
 // 获取所有质押APR数据
-export function useAllStakingAPRs(stakeAmount: string = '1000') {
+export function useAllStakingAPRs(stakeAmount: string = '1000', blockNumber?: bigint) {
   const chainId = useChainId();
   const contractAddress = getContractAddresses(chainId).stakingContract;
   const publicClient = usePublicClient();
@@ -550,7 +554,8 @@ export function useAllStakingAPRs(stakeAmount: string = '1000') {
           address: contractAddress as `0x${string}`,
           abi: HashKeyChainStakingABI,
           functionName: 'getAllStakingAPRs',
-          args: [stakeAmountWei]
+          args: [stakeAmountWei],
+          blockNumber
         });
         
         const [estimatedAPRs, maxAPRs] = result as [bigint[], bigint[]];
@@ -578,7 +583,7 @@ export function useAllStakingAPRs(stakeAmount: string = '1000') {
     };
     
     fetchAPRs();
-  }, [publicClient, contractAddress, stakeAmountWei]);
+  }, [publicClient, contractAddress, stakeAmountWei, blockNumber]);
   
   return data;
 }

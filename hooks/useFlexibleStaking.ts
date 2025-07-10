@@ -337,7 +337,8 @@ export async function batchGetFlexibleStakingInfo(
   contractAddress: string,
   publicClient: PublicClient,
   stakeIds: number[],
-  userAddress: string
+  userAddress: string,
+  blockNumber?: bigint
 ) {
   try {
     // First get the total flexible stake count
@@ -346,6 +347,7 @@ export async function batchGetFlexibleStakingInfo(
       abi: HashKeyChainStakingABI,
       functionName: 'getUserFlexibleStakeCount',
       args: [userAddress],
+      blockNumber
     }) as bigint;
 
     // Generate stakeIds array based on actual count
@@ -359,6 +361,7 @@ export async function batchGetFlexibleStakingInfo(
           abi: HashKeyChainStakingABI,
           functionName: 'getFlexibleStakeInfo',
           args: [userAddress, BigInt(id)],
+          blockNumber
         }) as [bigint, bigint, bigint, bigint, number];
 
         const rewardInfo = await publicClient.readContract({
@@ -366,6 +369,7 @@ export async function batchGetFlexibleStakingInfo(
           abi: HashKeyChainStakingABI,
           functionName: 'getFlexibleStakeReward',
           args: [userAddress, BigInt(id)],
+          blockNumber
         }) as [bigint, bigint, bigint, bigint];
 
         results.push({

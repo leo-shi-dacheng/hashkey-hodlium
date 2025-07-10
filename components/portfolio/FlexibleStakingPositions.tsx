@@ -31,6 +31,7 @@ interface FlexibleStakingPositionsProps {
   processingStakeId: number | null;
   setProcessingStakeId: (id: number | null) => void;
   getFlexibleAPR: () => string;
+  blockNumber?: bigint;
 }
 
 // 格式化剩余时间
@@ -62,6 +63,7 @@ const FlexibleStakingPositions: React.FC<FlexibleStakingPositionsProps> = ({
   processingStakeId,
   setProcessingStakeId,
   getFlexibleAPR,
+  blockNumber,
 }) => {
   const { address, isConnected } = useAccount();
   const { flexibleStakeCount, isLoading: loadingFlexibleInfo } = useUserFlexibleStakingInfo();
@@ -79,7 +81,7 @@ const FlexibleStakingPositions: React.FC<FlexibleStakingPositionsProps> = ({
     setIsLoadingPositions(true);
     try {
       const flexibleStakeIds = Array.from({ length: 100 }, (_, i) => i);
-      const flexibleStakesInfo = await batchGetFlexibleStakingInfo(contractAddress, publicClient, flexibleStakeIds, queryAddress);
+      const flexibleStakesInfo = await batchGetFlexibleStakingInfo(contractAddress, publicClient, flexibleStakeIds, queryAddress, blockNumber);
       const flexibleTotalReward = flexibleStakesInfo
         .filter(info => !info.error && info.stakingStatus === FlexibleStakeStatus.ACTIVE)
         .reduce((sum, info) => sum + info.reward!, BigInt(0));
